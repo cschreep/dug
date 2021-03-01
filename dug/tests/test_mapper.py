@@ -1,24 +1,25 @@
 from biolink.model import InformationContentEntity
 
-from dug.parsers import DugElement, BiolinkMapper
+from dug.parsers import DugElement, BiolinkEntityMapper
 
 
 def test_biolink_mapper():
-    rules = {
-        "id": "id",
-        "name": "name",
+
+    name = "study_result"
+    elem_type = "study_result"
+    elem_id = "study-result:abc"
+    desc = "the result of a study"
+    mapper_schema = {
+        name: {
+            "target": "InformationContentEntity",
+            "fields": {
+                "id": "id",
+                "name": "name",
+            },
+        }
     }
 
-    mapper_schema = {
-        "dest_classname": "InformationContentEntity",
-        "rules": rules,
-        "category": ["biolink:ClinicalFinding"],
-    }
-    mapper = BiolinkMapper(**mapper_schema)
-    elem_id = "abc"
-    name = "some element"
-    desc = "element description"
-    elem_type = "element_type"
+    mapper = BiolinkEntityMapper(["biolink:ClinicalTrial"], mapper_schema)
 
     source = DugElement(
         elem_id, name, desc, elem_type,
@@ -26,5 +27,4 @@ def test_biolink_mapper():
 
     output = mapper.parse(source)
     assert isinstance(output, InformationContentEntity)
-    assert output.category == mapper_schema['category']
-
+    assert output.category == ["biolink:ClinicalTrial"]

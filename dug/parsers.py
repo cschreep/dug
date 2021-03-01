@@ -3,6 +3,11 @@ import json
 import logging
 import os
 import xml.etree.ElementTree as ET
+from dataclasses import dataclass
+from typing import List, Dict, Optional, Iterable, Union
+
+from biolink import model as biolink_models
+
 import dug.utils as utils
 
 
@@ -50,6 +55,61 @@ class DugElement:
 
     def __str__(self):
         return json.dumps(self.__dict__, indent=2, default=utils.complex_handler)
+
+
+from typing import TypeVar, Generic
+
+T = TypeVar("T")
+
+
+
+
+@dataclass
+class BiolinkEntityMapper:
+
+    def __init__(self, category: List[str], rules: dict):
+        """
+        :param rules: A dictionary of attribute mappings from DugElements to Biolink models
+            {
+                "target": str, The name of a Biolink Model.
+                "category": List[str], A list of one or more Biolink URI's or CURIE's that describes the top-level ontology of the data being imported
+                "fields": Dict[str,str],
+            }
+        """
+
+        self.category = category
+        self.rules: dict = rules
+
+    def parse(self, source: DugElement) -> Union[biolink_models.NamedThing, DugElement]:
+
+        rule: dict = self.rules.get(source.name)
+        if not rule:
+            return source
+
+        dest_classname = rule["target"]
+        dest_class = getattr(biolink_models, dest_classname)
+
+        kwargs = {
+            'category': self.category,
+        }
+
+        fields = {
+            "id": "id",
+            "name": "name",
+        }
+
+        fields.update(rule.get("fields", {}))
+
+        for source_attr, dest_attr in fields.items():
+            if not hasattr(source, source_attr):
+                logger.warning(f"Unable to map element: DugElement has no attribute '{source_attr}'")
+                continue
+            value = getattr(source, source_attr)
+            kwargs[dest_attr] = value
+        try:
+            return dest_class(**kwargs)
+        except TypeError as te:
+            logger.error(f"Unable to map element: {te}")
 
 
 class DugConcept:
@@ -131,21 +191,26 @@ class DbGaPParser:
         participant_set = root.attrib['participant_set']
 
         # Parse study name from filehandle
-        study_name = utils.parse_study_name_from_filename(input_file)
+        study_name = parse_study_name_from_filename(input_file)
 
         if study_name is None:
             err_msg = f"Unable to parse DbGaP study name from data dictionary: {input_file}!"
             logger.error(err_msg)
             raise IOError(err_msg)
 
-        elements = []
+        elements: List[ET.Element] = []
+        variable: ET.Element
         for variable in root.iter('variable'):
-            elem = DugElement(elem_id=f"{variable.attrib['id']}.p{participant_set}",
-                              name=variable.find('name').text,
-                              desc=variable.find('description').text.lower(),
-                              elem_type="DbGaP",
-                              collection_id=f"{study_id}.p{participant_set}",
-                              collection_name=study_name)
+            variable_name = variable.find('name').text
+            variable_desc = variable.find('description').text.lower()
+            elem = DugElement(
+                elem_id=f"{variable.attrib['id']}.p{participant_set}",
+                name=variable_name,
+                desc=variable_desc,
+                elem_type="DbGaP",
+                collection_id=f"{study_id}.p{participant_set}",
+                collection_name=study_name
+            )
 
             # Create DBGaP links as study/variable actions
             elem.collection_action = utils.get_dbgap_study_link(study_id=elem.collection_id)
@@ -203,8 +268,10 @@ class TOPMedTagParser:
             for row in reader:
                 row = {k.strip(): v for k, v in row.items()}
                 elem = DugElement(elem_id=row['variable_full_accession'],
-                                  name=row['variable_name'] if 'variable_name' in row else row['variable_full_accession'],
-                                  desc=row['variable_desc'] if 'variable_name' in row else row['variable_full_accession'],
+                                  name=row['variable_name'] if 'variable_name' in row else row[
+                                      'variable_full_accession'],
+                                  desc=row['variable_desc'] if 'variable_name' in row else row[
+                                      'variable_full_accession'],
                                   elem_type="DbGaP",
                                   collection_id=row['study_full_accession'],
                                   collection_name=row['study_name'])
@@ -228,7 +295,6 @@ class TOPMedTagParser:
                 logger.debug(elem)
 
         return list(concepts.values()) + elements
-
 
 # Register parsers with parser factory
 factory = utils.ObjectFactory()
