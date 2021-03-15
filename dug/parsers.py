@@ -3,14 +3,12 @@ import json
 import logging
 import os
 import xml.etree.ElementTree as ET
-from dataclasses import dataclass
 from pathlib import Path
-from typing import List, Dict, Optional, Iterable, Union, Generic, TypeVar
+from typing import List, Dict, Union, Generic, TypeVar
 
 from biolink import model as biolink_models
 
 import dug.utils as utils
-
 
 logger = logging.getLogger(__name__)
 
@@ -226,7 +224,7 @@ class DbGaPParser:
         participant_set = root.attrib['participant_set']
 
         # Parse study name from filehandle
-        study_name = parse_study_name_from_filename(input_file)
+        study_name = utils.parse_study_name_from_filename(input_file)
 
         if study_name is None:
             err_msg = f"Unable to parse DbGaP study name from data dictionary: {input_file}!"
