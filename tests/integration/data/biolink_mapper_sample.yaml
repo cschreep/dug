@@ -1,0 +1,9 @@
+mapper: biolink
+rules:
+  study_result:
+    target: InformationContentEntity
+    categories:
+      - "biolink:ClinicalTrial"
+    fields:
+      id: id
+      name: name

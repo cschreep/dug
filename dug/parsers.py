@@ -4,7 +4,8 @@ import logging
 import os
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass
-from typing import List, Dict, Optional, Iterable, Union
+from pathlib import Path
+from typing import List, Dict, Optional, Iterable, Union, Generic, TypeVar
 
 from biolink import model as biolink_models
 
@@ -57,46 +58,50 @@ class DugElement:
         return json.dumps(self.__dict__, indent=2, default=utils.complex_handler)
 
 
-from typing import TypeVar, Generic
-
-T = TypeVar("T")
+T = TypeVar('T')
 
 
+class MapperFactory(Generic[T]):
+
+    def __call__(self, source: DugElement) -> T:
+        raise NotImplementedError()
+
+    @classmethod
+    def from_config(cls, **kwargs):
+        raise NotImplementedError()
 
 
-@dataclass
-class BiolinkEntityMapper:
+class BiolinkEntityMapperFactory(MapperFactory):
+    """
+    A dictionary of attribute mappings from DugElements to Biolink models
+        {
+            "source":
+            "target": str, The name of a Biolink Model.
+            "category": List[str], A list of one or more Biolink URI's or CURIE's that describes the top-level
+                        ontology of the data being imported
+            "fields": Dict[str,str],
+        }
+    """
 
-    def __init__(self, category: List[str], rules: dict):
-        """
-        :param rules: A dictionary of attribute mappings from DugElements to Biolink models
-            {
-                "target": str, The name of a Biolink Model.
-                "category": List[str], A list of one or more Biolink URI's or CURIE's that describes the top-level ontology of the data being imported
-                "fields": Dict[str,str],
-            }
-        """
-
-        self.category = category
+    def __init__(self, rules: dict):
         self.rules: dict = rules
 
-    def parse(self, source: DugElement) -> Union[biolink_models.NamedThing, DugElement]:
+    def __call__(self, source: DugElement) -> biolink_models.NamedThing:
 
         rule: dict = self.rules.get(source.name)
         if not rule:
-            return source
+            raise ValueError(f"Mapping rules not defined for {source.name}")
 
         dest_classname = rule["target"]
         dest_class = getattr(biolink_models, dest_classname)
+        if not dest_class:
+            raise ValueError(f"{dest_classname} is not a valid Biolink model")
 
         kwargs = {
-            'category': self.category,
+            'category': rule.get('categories'),
         }
 
-        fields = {
-            "id": "id",
-            "name": "name",
-        }
+        fields = self.default_fields()
 
         fields.update(rule.get("fields", {}))
 
@@ -110,6 +115,36 @@ class BiolinkEntityMapper:
             return dest_class(**kwargs)
         except TypeError as te:
             logger.error(f"Unable to map element: {te}")
+
+    @staticmethod
+    def default_fields() -> Dict[str, str]:
+        return {
+            "id": "id",
+            "name": "name",
+        }
+
+
+mapper_map = {
+    "biolink": BiolinkEntityMapperFactory,
+}
+
+
+def load_mapper_from_config(filepath: Union[str, Path]) -> MapperFactory:
+    import yaml
+    filepath = Path(filepath)
+    with filepath.open() as config_file:
+        config_data = yaml.load(config_file)
+
+    mapper_type = config_data.pop('mapper', None)
+
+    if mapper_type is None:
+        raise RuntimeError(f"{mapper_type} is not a valid mapper type")
+
+    mapper_factory_class = mapper_map.get(mapper_type)
+    if mapper_factory_class is None:
+        raise RuntimeError(f"{mapper_type} is not a valid mapper type")
+
+    return mapper_factory_class(**config_data)
 
 
 class DugConcept:

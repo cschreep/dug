@@ -1,6 +1,6 @@
 from biolink.model import InformationContentEntity
 
-from dug.parsers import DugElement, BiolinkEntityMapper
+from dug.parsers import DugElement, BiolinkEntityMapperFactory
 
 
 def test_biolink_mapper():
@@ -16,15 +16,16 @@ def test_biolink_mapper():
                 "id": "id",
                 "name": "name",
             },
+            "categories": ["biolink:ClinicalTrial"],
         }
     }
 
-    mapper = BiolinkEntityMapper(["biolink:ClinicalTrial"], mapper_schema)
+    mapper = BiolinkEntityMapperFactory(mapper_schema)
 
     source = DugElement(
         elem_id, name, desc, elem_type,
     )
 
-    output = mapper.parse(source)
+    output = mapper(source)
     assert isinstance(output, InformationContentEntity)
     assert output.category == ["biolink:ClinicalTrial"]
