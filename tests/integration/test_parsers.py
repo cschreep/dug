@@ -22,17 +22,20 @@ def test_load_mapper_from_config():
     config_file = TEST_DATA_DIR / 'biolink_mapper_sample.yaml'
     mapper = load_mapper_from_config(config_file)
 
-    name = "study_result"
-    elem_type = "study_result"
+    elem_name = "study_result"
+    elem_type = "study_result_type"
     elem_id = "study-result:abc"
     desc = "the result of a study"
 
     source = DugElement(
-        elem_id, name, desc, elem_type,
+        elem_id, elem_name, desc, elem_type,
     )
 
     output = mapper(source)
+
     assert isinstance(output, InformationContentEntity)
+    assert output.id == elem_id
+    assert output.name == elem_name
     assert output.category == ["biolink:ClinicalTrial"]
 
 

@@ -64,24 +64,38 @@ class MapperFactory(Generic[T]):
     def __call__(self, source: DugElement) -> T:
         raise NotImplementedError()
 
-    @classmethod
-    def from_config(cls, **kwargs):
-        raise NotImplementedError()
-
 
 class BiolinkEntityMapperFactory(MapperFactory):
     """
-    A dictionary of attribute mappings from DugElements to Biolink models
-        {
-            "source":
-            "target": str, The name of a Biolink Model.
-            "category": List[str], A list of one or more Biolink URI's or CURIE's that describes the top-level
-                        ontology of the data being imported
-            "fields": Dict[str,str],
-        }
+    >>> mapper = BiolinkEntityMapperFactory(rules={
+    ...     "study_result": {
+    ...         "target": "InformationContentEntity",
+    ...         "fields": {
+    ...             "id": "id",
+    ...             "name": "name",
+    ...         },
+    ...         "categories": ["biolink:ClinicalTrial"],
+    ...    }
+    ... })
+    >>> element = DugElement(
+    ...     "study-result:abc", "study_result", "study_result_desc", "study_result_type",
+    ... )
+    >>> mapper(element)
+    InformationContentEntity(id='study-result:abc', name='study_result', category=['biolink:ClinicalTrial'])
     """
 
     def __init__(self, rules: dict):
+        """
+        :param rules: A dictionary mappings from DugElement names to Biolink model and attribute mappings:
+            DugElement.name: {
+                "target": str, The name of a Biolink Model.
+                "category": List[str], A list of one or more Biolink URI's or CURIE's that describes the top-level
+                            ontology of the data being imported
+                "fields": Dict[str,str],
+            }
+
+        """
+
         self.rules: dict = rules
 
     def __call__(self, source: DugElement) -> biolink_models.NamedThing:
@@ -333,3 +347,8 @@ class TOPMedTagParser:
 factory = utils.ObjectFactory()
 factory.register_builder("DbGaP", DbGaPParser)
 factory.register_builder("TOPMedTag", TOPMedTagParser)
+
+
+if __name__ == '__main__':
+    import doctest
+    doctest.testmod()
