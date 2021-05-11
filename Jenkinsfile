@@ -1,5 +1,5 @@
 pipeline {
-    agent any
+    agent "default-agent"
     stages {
         stage('Install') {
             steps {
