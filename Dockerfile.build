@@ -3,12 +3,3 @@ FROM python:3.9
 RUN apt-get update && \
     apt-get install -y make docker && \
     rm -rf /var/cache/apk/*
-
-ENV USER builder
-ENV HOME /home/$USER
-ENV UID 1000
-
-RUN adduser --disabled-login --home $HOME --shell /bin/bash --uid $UID $USER
-
-USER $USER
-WORKDIR $HOME
