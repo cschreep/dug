@@ -1,7 +1,5 @@
 pipeline {
-    agent {
-        dockerfile true
-    }
+
     stages {
 //         stage('Install') {
 //             steps {
@@ -11,6 +9,9 @@ pipeline {
 //             }
 //         }
         stage('Test') {
+            agent {
+                dockerfile true
+            }
             steps {
                 sh '''
                 make test
@@ -20,6 +21,11 @@ pipeline {
         stage('Publish') {
             when {
                 tag "release-*"
+            }
+            agent {
+                dockerfile {
+                    filename 'Dockerfile.build'
+                }
             }
             steps {
                 sh '''
